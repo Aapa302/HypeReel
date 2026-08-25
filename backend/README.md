@@ -1,6 +1,6 @@
 # HypeReel Backend
 
-Node.js + Express backend for HypeReel. Accepts a video upload, stores it in Firebase Storage, uses Google Gemini to generate a descriptive caption and a catchy/viral caption, picks 8-10 relevant trending hashtags (fetched via Gemini with web search grounding and cached for 3 hours), and saves everything to Firestore.
+Node.js + Express backend for HypeReel. Accepts a video upload, stores it in Firebase Storage, uses Google Gemini to generate a descriptive caption and a catchy/viral caption, picks 8-10 relevant trending hashtags (fetched via Gemini with web search grounding and cached for 3 hours), generates an AI thumbnail image for the video with Gemini image generation, and saves everything to Firestore.
 
 ## API
 
@@ -27,9 +27,18 @@ Response:
   "id": "<firestore-doc-id>",
   "descriptiveCaption": "...",
   "viralCaption": "...",
-  "hashtags": ["#tag1", "#tag2", "..."]
+  "hashtags": ["#tag1", "#tag2", "..."],
+  "thumbnailUrl": "https://firebasestorage.googleapis.com/v0/b/<bucket>/o/thumbnails%2F...?alt=media&token=..."
 }
 ```
+
+| Field | Description |
+| --- | --- |
+| `id` | Firestore document ID in the `generations` collection |
+| `descriptiveCaption` | Caption describing what happens in the video |
+| `viralCaption` | Catchy, ready-to-post caption |
+| `hashtags` | 8-10 relevant trending hashtags |
+| `thumbnailUrl` | Public URL of the AI-generated thumbnail image in Firebase Storage. `null` if thumbnail generation failed (the rest of the response is still returned) |
 
 ## Required environment variables
 
@@ -42,6 +51,7 @@ Response:
 | `GEMINI_API_KEY` | Google AI Studio API key for Gemini |
 | `PORT` | Optional, defaults to `3000` |
 | `GEMINI_MODEL` | Optional, defaults to `gemini-2.0-flash` |
+| `GEMINI_IMAGE_MODEL` | Optional, defaults to `gemini-2.0-flash-preview-image-generation` (image generation model used for the thumbnail) |
 
 ## Local setup
 
@@ -88,4 +98,6 @@ Response:
 ## Notes
 
 - Trending hashtags are cached in memory for 3 hours to avoid redundant Gemini calls; the first request after a cold start or cache expiry is slower.
-- Each generation is saved to the Firestore `generations` collection with video metadata, both captions, and the selected hashtags.
+- Each generation is saved to the Firestore `generations` collection with video metadata, both captions, the selected hashtags, and the thumbnail (`thumbnailUrl` plus its `thumbnailPath` in the bucket).
+- The thumbnail is generated from the descriptive caption and the viral caption's theme, aiming for a bold, high-CTR, vertical 9:16 image, then uploaded to `thumbnails/` in Firebase Storage with a download token so the URL is publicly readable.
+- Thumbnail generation is best effort: if the image model or the upload fails, the request still succeeds and `thumbnailUrl` is `null`.

@@ -1,12 +1,27 @@
 const express = require('express');
 
 const { upload } = require('../middleware/upload');
-const { uploadVideo } = require('../services/storage');
-const { generateCaptions, selectRelevantHashtags } = require('../services/gemini');
+const { uploadVideo, uploadThumbnail } = require('../services/storage');
+const {
+  generateCaptions,
+  selectRelevantHashtags,
+  generateThumbnail,
+} = require('../services/gemini');
 const { getTrendingHashtags } = require('../services/hashtagCache');
 const { getFirestore } = require('../config/firebase');
 
 const router = express.Router();
+
+async function createThumbnail(captions) {
+  try {
+    const { buffer, mimeType } = await generateThumbnail(captions);
+    return await uploadThumbnail(buffer, mimeType);
+  } catch (err) {
+    // A missing thumbnail should not fail the whole generation.
+    console.error('Thumbnail generation failed:', err);
+    return { storagePath: null, storageUrl: null };
+  }
+}
 
 router.post('/', upload.single('video'), async (req, res, next) => {
   try {
@@ -21,7 +36,11 @@ router.post('/', upload.single('video'), async (req, res, next) => {
     ]);
 
     const captionContext = `${captions.descriptiveCaption}\n${captions.viralCaption}`;
-    const hashtags = await selectRelevantHashtags(trendingHashtags, captionContext);
+
+    const [hashtags, thumbnail] = await Promise.all([
+      selectRelevantHashtags(trendingHashtags, captionContext),
+      createThumbnail(captions),
+    ]);
 
     const db = getFirestore();
     const doc = await db.collection('generations').add({
@@ -35,6 +54,8 @@ router.post('/', upload.single('video'), async (req, res, next) => {
       descriptiveCaption: captions.descriptiveCaption,
       viralCaption: captions.viralCaption,
       hashtags,
+      thumbnailPath: thumbnail.storagePath,
+      thumbnailUrl: thumbnail.storageUrl,
       createdAt: new Date().toISOString(),
     });
 
@@ -43,6 +64,7 @@ router.post('/', upload.single('video'), async (req, res, next) => {
       descriptiveCaption: captions.descriptiveCaption,
       viralCaption: captions.viralCaption,
       hashtags,
+      thumbnailUrl: thumbnail.storageUrl,
     });
   } catch (err) {
     next(err);

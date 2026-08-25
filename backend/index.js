@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 
 const generateRouter = require('./src/routes/generate');
+const { initFirebase, isFirebaseConfigured } = require('./src/config/firebase');
 
 const app = express();
 
@@ -11,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', firebase: isFirebaseConfigured() });
 });
 
 app.use('/api/generate', generateRouter);
@@ -40,6 +41,7 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 3000;
 
 if (require.main === module) {
+  initFirebase();
   app.listen(PORT, () => {
     console.log(`HypeReel backend listening on port ${PORT}`);
   });

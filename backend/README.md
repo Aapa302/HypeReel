@@ -50,7 +50,7 @@ Response:
 | `FIREBASE_STORAGE_BUCKET` | Storage bucket name, e.g. `my-project.appspot.com` |
 | `GEMINI_API_KEY` | Google AI Studio API key for Gemini |
 | `PORT` | Optional, defaults to `3000` |
-| `GEMINI_MODEL` | Optional, defaults to `gemini-2.0-flash` |
+| `GEMINI_MODEL` | Optional, defaults to `gemini-flash-latest` (Google alias that tracks the current stable Flash model) |
 | `GEMINI_IMAGE_MODEL` | Optional, defaults to `gemini-2.0-flash-preview-image-generation` (image generation model used for the thumbnail) |
 
 ## Local setup

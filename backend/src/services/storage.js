@@ -27,4 +27,33 @@ async function uploadVideo(file) {
   return { storagePath: fileName, storageUrl };
 }
 
-module.exports = { uploadVideo };
+const IMAGE_EXTENSIONS = {
+  'image/png': '.png',
+  'image/jpeg': '.jpg',
+  'image/webp': '.webp',
+};
+
+async function uploadThumbnail(buffer, mimeType) {
+  const bucket = getBucket();
+
+  const ext = IMAGE_EXTENSIONS[mimeType] || '.png';
+  const fileName = `thumbnails/${Date.now()}-${crypto.randomUUID()}${ext}`;
+  const blob = bucket.file(fileName);
+
+  const downloadToken = crypto.randomUUID();
+
+  await blob.save(buffer, {
+    contentType: mimeType,
+    metadata: {
+      metadata: {
+        firebaseStorageDownloadTokens: downloadToken,
+      },
+    },
+  });
+
+  const storageUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(fileName)}?alt=media&token=${downloadToken}`;
+
+  return { storagePath: fileName, storageUrl };
+}
+
+module.exports = { uploadVideo, uploadThumbnail };

@@ -7,6 +7,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { GoogleAIFileManager, FileState } = require('@google/generative-ai/server');
 
 const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const IMAGE_MODEL_NAME =
+  process.env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-preview-image-generation';
 
 function getApiKey() {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -150,4 +152,42 @@ Respond ONLY with valid JSON in exactly this format:
   return parsed.hashtags.slice(0, 10);
 }
 
-module.exports = { generateCaptions, fetchTrendingHashtags, selectRelevantHashtags };
+async function generateThumbnail({ descriptiveCaption, viralCaption }) {
+  const model = getClient().getGenerativeModel({
+    model: IMAGE_MODEL_NAME,
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+  });
+
+  const prompt = `Create a thumbnail image for a short-form social media video.
+
+What happens in the video: "${descriptiveCaption}"
+The post's viral caption / theme: "${viralCaption}"
+
+Requirements:
+- Eye-catching and designed to maximize click-through rate.
+- Bold, high-contrast colors and a single clear focal subject that reads at thumbnail size.
+- Vertical 9:16 composition suitable for Reels / Shorts / TikTok.
+- Convey the video's subject and the caption's emotion; expressive, dramatic lighting.
+- No text, letters, words, watermarks or logos in the image.`;
+
+  const result = await model.generateContent(prompt);
+
+  const parts = result.response?.candidates?.[0]?.content?.parts || [];
+  const imagePart = parts.find((part) => part.inlineData?.data);
+
+  if (!imagePart) {
+    throw new Error('Gemini response did not contain a thumbnail image.');
+  }
+
+  return {
+    buffer: Buffer.from(imagePart.inlineData.data, 'base64'),
+    mimeType: imagePart.inlineData.mimeType || 'image/png',
+  };
+}
+
+module.exports = {
+  generateCaptions,
+  fetchTrendingHashtags,
+  selectRelevantHashtags,
+  generateThumbnail,
+};

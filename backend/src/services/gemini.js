@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { GoogleAIFileManager, FileState } = require('@google/generative-ai/server');
 
-const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+const MODEL_NAME = process.env.GEMINI_MODEL || 'gemini-flash-latest';
 const IMAGE_MODEL_NAME =
   process.env.GEMINI_IMAGE_MODEL || 'gemini-2.0-flash-preview-image-generation';
 

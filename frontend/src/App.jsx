@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 
 import ProcessingState from './components/ProcessingState'
+import PullCordLamp from './components/PullCordLamp'
 import Results from './components/Results'
 import Reveal from './components/Reveal'
 import UploadCard from './components/UploadCard'
@@ -22,6 +23,7 @@ export default function App() {
   const [progress, setProgress] = useState(null)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
+  const [lampOn, setLampOn] = useState(false)
   const resultsRef = useRef(null)
 
   const busy = status === 'loading'
@@ -67,6 +69,15 @@ export default function App() {
     }
   }, [file])
 
+  // The lamp stays on while an upload/generation is running so the interface
+  // can never disappear mid-request.
+  const handleLampToggle = useCallback(() => {
+    setLampOn((current) => {
+      if (current) handleReset()
+      return !current
+    })
+  }, [handleReset])
+
   return (
     <div className="relative min-h-screen">
       <section className="relative isolate overflow-hidden">
@@ -75,6 +86,17 @@ export default function App() {
             <HeroScene />
           </Suspense>
           <div className="absolute inset-0 bg-gradient-to-b from-ink-900/40 via-ink-900/70 to-ink-900" />
+          <motion.div
+            aria-hidden
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(60rem 40rem at 50% 30%, rgba(168, 85, 247, 0.28), transparent 70%)',
+            }}
+            initial={false}
+            animate={{ opacity: lampOn ? 1 : 0 }}
+            transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+          />
         </div>
 
         <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-6 sm:px-8">
@@ -111,23 +133,32 @@ export default function App() {
             </p>
           </motion.div>
 
-          <motion.div
-            id="upload"
-            initial={{ opacity: 0, y: 40, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ duration: 0.9, delay: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="mx-auto mt-12 max-w-2xl"
-          >
-            <UploadCard
-              file={file}
-              busy={busy}
-              progress={progress}
-              error={status === 'error' ? error : null}
-              onSelect={handleSelect}
-              onGenerate={handleGenerate}
-              onReset={handleReset}
-            />
-          </motion.div>
+          <div id="upload" className="mx-auto mt-10 flex max-w-2xl flex-col items-center">
+            <PullCordLamp on={lampOn} onToggle={handleLampToggle} locked={busy} />
+
+            <AnimatePresence initial={false}>
+              {lampOn && (
+                <motion.div
+                  key="upload-card"
+                  initial={{ opacity: 0, y: 40, scale: 0.94 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 24, scale: 0.96 }}
+                  transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+                  className="mt-10 w-full"
+                >
+                  <UploadCard
+                    file={file}
+                    busy={busy}
+                    progress={progress}
+                    error={status === 'error' ? error : null}
+                    onSelect={handleSelect}
+                    onGenerate={handleGenerate}
+                    onReset={handleReset}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
       </section>
 

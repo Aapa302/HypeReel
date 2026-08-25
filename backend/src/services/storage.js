@@ -5,6 +5,7 @@ const { getBucket } = require('../config/firebase');
 
 async function uploadVideo(file) {
   const bucket = getBucket();
+  if (!bucket) return { storagePath: null, storageUrl: null };
 
   const ext = path.extname(file.originalname) || '.mp4';
   const fileName = `videos/${Date.now()}-${crypto.randomUUID()}${ext}`;
@@ -35,6 +36,7 @@ const IMAGE_EXTENSIONS = {
 
 async function uploadThumbnail(buffer, mimeType) {
   const bucket = getBucket();
+  if (!bucket) return { storagePath: null, storageUrl: null };
 
   const ext = IMAGE_EXTENSIONS[mimeType] || '.png';
   const fileName = `thumbnails/${Date.now()}-${crypto.randomUUID()}${ext}`;

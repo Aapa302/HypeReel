@@ -15,7 +15,17 @@ const router = express.Router();
 async function createThumbnail(captions) {
   try {
     const { buffer, mimeType } = await generateThumbnail(captions);
-    return await uploadThumbnail(buffer, mimeType);
+    const uploaded = await uploadThumbnail(buffer, mimeType);
+
+    if (!uploaded.storageUrl) {
+      // Without Storage, inline the image so clients can still display it.
+      return {
+        storagePath: null,
+        storageUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
+      };
+    }
+
+    return uploaded;
   } catch (err) {
     // A missing thumbnail should not fail the whole generation.
     console.error('Thumbnail generation failed:', err);
@@ -43,24 +53,26 @@ router.post('/', upload.single('video'), async (req, res, next) => {
     ]);
 
     const db = getFirestore();
-    const doc = await db.collection('generations').add({
-      video: {
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        storagePath,
-        storageUrl,
-      },
-      descriptiveCaption: captions.descriptiveCaption,
-      viralCaption: captions.viralCaption,
-      hashtags,
-      thumbnailPath: thumbnail.storagePath,
-      thumbnailUrl: thumbnail.storageUrl,
-      createdAt: new Date().toISOString(),
-    });
+    const doc = db
+      ? await db.collection('generations').add({
+          video: {
+            originalName: req.file.originalname,
+            mimeType: req.file.mimetype,
+            size: req.file.size,
+            storagePath,
+            storageUrl,
+          },
+          descriptiveCaption: captions.descriptiveCaption,
+          viralCaption: captions.viralCaption,
+          hashtags,
+          thumbnailPath: thumbnail.storagePath,
+          thumbnailUrl: thumbnail.storageUrl,
+          createdAt: new Date().toISOString(),
+        })
+      : null;
 
     res.json({
-      id: doc.id,
+      id: doc ? doc.id : null,
       descriptiveCaption: captions.descriptiveCaption,
       viralCaption: captions.viralCaption,
       hashtags,

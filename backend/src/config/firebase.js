@@ -1,42 +1,60 @@
 const admin = require('firebase-admin');
 
+const REQUIRED_VARS = [
+  'FIREBASE_PROJECT_ID',
+  'FIREBASE_CLIENT_EMAIL',
+  'FIREBASE_PRIVATE_KEY',
+  'FIREBASE_STORAGE_BUCKET',
+];
+
 let initialized = false;
+let warned = false;
+
+function missingVars() {
+  return REQUIRED_VARS.filter((name) => !process.env[name]);
+}
+
+function isFirebaseConfigured() {
+  return missingVars().length === 0;
+}
 
 function initFirebase() {
-  if (initialized) return;
+  if (initialized) return true;
 
-  const projectId = process.env.FIREBASE_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  const storageBucket = process.env.FIREBASE_STORAGE_BUCKET;
+  const missing = missingVars();
 
-  if (!projectId || !clientEmail || !privateKey || !storageBucket) {
-    throw new Error(
-      'Missing Firebase configuration. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY and FIREBASE_STORAGE_BUCKET.'
-    );
+  if (missing.length > 0) {
+    if (!warned) {
+      warned = true;
+      console.warn(
+        `Firebase is not configured (missing ${missing.join(', ')}). Storage uploads and Firestore saves will be skipped.`
+      );
+    }
+    return false;
   }
 
   admin.initializeApp({
     credential: admin.credential.cert({
-      projectId,
-      clientEmail,
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
       // Render/most hosts store the key with literal "\n" sequences.
-      privateKey: privateKey.replace(/\\n/g, '\n'),
+      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
     }),
-    storageBucket,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
   });
 
   initialized = true;
+  return true;
 }
 
 function getFirestore() {
-  initFirebase();
+  if (!initFirebase()) return null;
   return admin.firestore();
 }
 
 function getBucket() {
-  initFirebase();
+  if (!initFirebase()) return null;
   return admin.storage().bucket();
 }
 
-module.exports = { getFirestore, getBucket };
+module.exports = { isFirebaseConfigured, initFirebase, getFirestore, getBucket };

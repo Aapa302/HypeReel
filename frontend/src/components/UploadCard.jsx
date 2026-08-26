@@ -156,17 +156,29 @@ export default function UploadCard({ file, onSelect, onGenerate, onReset, busy, 
               className="overflow-hidden"
             >
               <div className="mt-6">
-                <div className="mb-2 flex justify-between text-xs font-medium uppercase tracking-widest text-slate-400">
-                  <span>{uploading ? 'Uploading' : 'Generating'}</span>
-                  <span>{uploading ? `${progress}%` : 'AI at work'}</span>
+                <div className="mb-2 flex items-end justify-between gap-3">
+                  <span className="text-xs font-medium uppercase tracking-widest text-slate-400">
+                    {uploading ? 'Uploading your clip' : 'Handing it to the AI'}
+                  </span>
+                  <motion.span
+                    key={uploading ? 'percent' : 'done'}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="gradient-text text-sm font-black tabular-nums"
+                  >
+                    {uploading ? `${progress}%` : '100%'}
+                  </motion.span>
                 </div>
-                <div className="relative h-2.5 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
+                <div className="relative h-3 w-full overflow-hidden rounded-full border border-white/10 bg-white/5">
                   <motion.div
-                    className="h-full rounded-full bg-hype-gradient shadow-glow-strong"
+                    className="relative h-full rounded-full bg-hype-gradient shadow-glow-strong"
                     initial={{ width: 0 }}
                     animate={{ width: uploading ? `${progress}%` : '100%' }}
                     transition={{ duration: 0.4, ease: 'easeOut' }}
-                  />
+                  >
+                    <span className="absolute inset-0 animate-pulse-glow rounded-full bg-hype-gradient blur-[6px]" />
+                  </motion.div>
                   <div className="pointer-events-none absolute inset-0">
                     <div className="animate-shimmer h-full w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent" />
                   </div>

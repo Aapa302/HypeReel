@@ -1,32 +1,10 @@
 import { motion, useAnimationControls } from 'framer-motion'
 import { useCallback, useRef } from 'react'
 
-import useClickSound from '../hooks/useClickSound'
+import useSound from '../hooks/useSound'
 
 const PULL_DISTANCE = 34
 const PULL_THRESHOLD = 12
-
-function MuteToggle({ muted, onToggle }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={!muted}
-      aria-label={muted ? 'Unmute the lamp click' : 'Mute the lamp click'}
-      className="pill inline-flex items-center gap-2 !px-3 !py-1.5 !text-xs text-slate-300"
-    >
-      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <path d="M4 9.5h3L11 6v12l-4-3.5H4z" strokeLinecap="round" strokeLinejoin="round" />
-        {muted ? (
-          <path d="M15.5 9.5l5 5m0-5l-5 5" strokeLinecap="round" />
-        ) : (
-          <path d="M15.5 9a4 4 0 010 6m2.5-8.5a7 7 0 010 11" strokeLinecap="round" />
-        )}
-      </svg>
-      {muted ? 'Sound off' : 'Sound on'}
-    </button>
-  )
-}
 
 /**
  * Hero entry point: an SVG desk lamp with a draggable pull cord. Pulling the
@@ -34,7 +12,7 @@ function MuteToggle({ muted, onToggle }) {
  */
 export default function PullCordLamp({ on, onToggle, locked = false }) {
   const cord = useAnimationControls()
-  const { muted, toggleMuted, play } = useClickSound()
+  const { playClick } = useSound()
   const dragged = useRef(false)
 
   const pull = useCallback(() => {
@@ -42,9 +20,9 @@ export default function PullCordLamp({ on, onToggle, locked = false }) {
       y: [0, PULL_DISTANCE, 0],
       transition: { duration: 0.62, times: [0, 0.3, 1], ease: [0.22, 1, 0.36, 1] },
     })
-    play()
+    playClick()
     if (!locked) onToggle()
-  }, [cord, locked, onToggle, play])
+  }, [cord, locked, onToggle, playClick])
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -191,10 +169,7 @@ export default function PullCordLamp({ on, onToggle, locked = false }) {
         </motion.div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <p className="text-sm text-slate-400">{on ? 'Lamp on — drop your clip below' : 'Pull the cord to start'}</p>
-        <MuteToggle muted={muted} onToggle={toggleMuted} />
-      </div>
+      <p className="text-sm text-slate-400">{on ? 'Lamp on — drop your clip below' : 'Pull the cord to start'}</p>
     </div>
   )
 }

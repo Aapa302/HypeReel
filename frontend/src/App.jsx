@@ -1,11 +1,17 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 
+import OnboardingGuide from './components/OnboardingGuide'
 import ProcessingState from './components/ProcessingState'
 import PullCordLamp from './components/PullCordLamp'
 import Results from './components/Results'
 import Reveal from './components/Reveal'
+import SoundToggle from './components/SoundToggle'
+import StatsCounter from './components/StatsCounter'
+import ThemeToggle from './components/ThemeToggle'
 import UploadCard from './components/UploadCard'
+import useSound from './hooks/useSound'
+import useTheme from './hooks/useTheme'
 import { extractErrorMessage, generateFromVideo } from './lib/api'
 
 // three.js is heavy, so the WebGL scene is fetched after the first paint.
@@ -24,9 +30,15 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [lampOn, setLampOn] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  // Session-only: the guide reappears on a full reload, by design.
+  const [showGuide, setShowGuide] = useState(true)
   const resultsRef = useRef(null)
+  const { playSuccess } = useSound()
+  const { theme } = useTheme()
 
   const busy = status === 'loading'
+  const uploading = busy && progress !== null && progress < 100
 
   useEffect(() => {
     if (status === 'done' && resultsRef.current) {
@@ -61,13 +73,32 @@ export default function App() {
       const data = await generateFromVideo(file, { onProgress: setProgress })
       setResult(data)
       setStatus('done')
+      playSuccess()
     } catch (err) {
       setError(extractErrorMessage(err))
       setStatus('error')
     } finally {
       setProgress(null)
     }
-  }, [file])
+  }, [file, playSuccess])
+
+  // The backend regenerates captions and hashtags together from the same clip,
+  // which is still in memory, so no re-upload is needed from the user.
+  const handleRegenerate = useCallback(async () => {
+    if (!file || regenerating) return
+    setRegenerating(true)
+    setError(null)
+
+    try {
+      const data = await generateFromVideo(file)
+      setResult(data)
+      playSuccess()
+    } catch (err) {
+      setError(extractErrorMessage(err))
+    } finally {
+      setRegenerating(false)
+    }
+  }, [file, playSuccess, regenerating])
 
   // The lamp stays on while an upload/generation is running so the interface
   // can never disappear mid-request.
@@ -85,7 +116,13 @@ export default function App() {
           <Suspense fallback={null}>
             <HeroScene />
           </Suspense>
-          <div className="absolute inset-0 bg-gradient-to-b from-ink-900/40 via-ink-900/70 to-ink-900" />
+          <div
+            className={
+              theme === 'light'
+                ? 'absolute inset-0 bg-gradient-to-b from-white/50 via-white/70 to-[#f7f8ff]'
+                : 'absolute inset-0 bg-gradient-to-b from-ink-900/40 via-ink-900/70 to-ink-900'
+            }
+          />
           <motion.div
             aria-hidden
             className="absolute inset-0"
@@ -106,12 +143,16 @@ export default function App() {
             </span>
             <span className="text-lg font-bold tracking-tight text-white">HypeReel</span>
           </div>
-          <a
-            className="hidden text-sm font-medium text-slate-300 transition hover:text-white sm:block"
-            href="#upload"
-          >
-            Try it now
-          </a>
+          <div className="flex items-center gap-2.5">
+            <a
+              className="hidden text-sm font-medium text-slate-300 transition hover:text-white sm:block"
+              href="#upload"
+            >
+              Try it now
+            </a>
+            <SoundToggle />
+            <ThemeToggle />
+          </div>
         </header>
 
         <div className="mx-auto max-w-6xl px-5 pb-16 pt-10 sm:px-8 sm:pb-24 sm:pt-16">
@@ -131,9 +172,16 @@ export default function App() {
               Drop in a video and HypeReel generates a scroll-stopping thumbnail, two ready-to-post captions and the
               hashtags that are trending right now.
             </p>
+            <StatsCounter />
           </motion.div>
 
           <div id="upload" className="mx-auto mt-10 flex max-w-2xl flex-col items-center">
+            <AnimatePresence initial={false}>
+              {showGuide && (
+                <OnboardingGuide key="guide" className="mb-10" onDismiss={() => setShowGuide(false)} />
+              )}
+            </AnimatePresence>
+
             <PullCordLamp on={lampOn} onToggle={handleLampToggle} locked={busy} />
 
             <AnimatePresence initial={false}>
@@ -164,7 +212,7 @@ export default function App() {
 
       <div ref={resultsRef}>
         <AnimatePresence mode="wait">
-          {busy && <ProcessingState key="processing" />}
+          {busy && !uploading && <ProcessingState key="processing" />}
           {status === 'done' && result && (
             <motion.div
               key="results"
@@ -173,7 +221,17 @@ export default function App() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <Results result={result} onReset={handleReset} />
+              {error && (
+                <p className="mx-auto mt-4 max-w-3xl rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-center text-sm text-rose-200">
+                  {error}
+                </p>
+              )}
+              <Results
+                result={result}
+                onReset={handleReset}
+                onRegenerate={file ? handleRegenerate : null}
+                regenerating={regenerating}
+              />
             </motion.div>
           )}
         </AnimatePresence>

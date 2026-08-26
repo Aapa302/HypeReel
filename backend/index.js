@@ -4,6 +4,7 @@ const express = require('express');
 const cors = require('cors');
 
 const generateRouter = require('./src/routes/generate');
+const statsRouter = require('./src/routes/stats');
 const { initFirebase, isFirebaseConfigured } = require('./src/config/firebase');
 
 const app = express();
@@ -16,6 +17,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/generate', generateRouter);
+app.use('/api/stats', statsRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not found' });

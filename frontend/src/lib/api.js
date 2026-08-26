@@ -17,6 +17,19 @@ export function extractErrorMessage(error) {
   return error?.message || 'Something went wrong while generating your assets.'
 }
 
+/**
+ * Returns `null` when /api/stats is unavailable (older backend deploys, or
+ * Firestore not configured) so callers can hide the counter instead of erroring.
+ */
+export async function fetchStats() {
+  try {
+    const response = await api.get('/api/stats')
+    return response.data
+  } catch {
+    return null
+  }
+}
+
 export async function generateFromVideo(file, { onProgress, signal } = {}) {
   const form = new FormData()
   form.append('video', file)

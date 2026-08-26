@@ -1,37 +1,39 @@
 const express = require('express');
 
 const { upload } = require('../middleware/upload');
-const { uploadVideo, uploadThumbnail } = require('../services/storage');
-const {
-  generateCaptions,
-  selectRelevantHashtags,
-  generateThumbnail,
-} = require('../services/gemini');
+const { uploadVideo } = require('../services/storage');
+const { generateCaptions, selectRelevantHashtags } = require('../services/gemini');
 const { getTrendingHashtags } = require('../services/hashtagCache');
 const { getFirestore } = require('../config/firebase');
 
 const router = express.Router();
 
-async function createThumbnail(captions) {
-  try {
-    const { buffer, mimeType } = await generateThumbnail(captions);
-    const uploaded = await uploadThumbnail(buffer, mimeType);
-
-    if (!uploaded.storageUrl) {
-      // Without Storage, inline the image so clients can still display it.
-      return {
-        storagePath: null,
-        storageUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
-      };
-    }
-
-    return uploaded;
-  } catch (err) {
-    // A missing thumbnail should not fail the whole generation.
-    console.error('Thumbnail generation failed:', err);
-    return { storagePath: null, storageUrl: null };
-  }
-}
+// AI thumbnail generation is temporarily disabled: the image model requires a
+// billed Google AI project. `thumbnailUrl` is returned as null until then.
+//
+// const { uploadThumbnail } = require('../services/storage');
+// const { generateThumbnail } = require('../services/gemini');
+//
+// async function createThumbnail(captions) {
+//   try {
+//     const { buffer, mimeType } = await generateThumbnail(captions);
+//     const uploaded = await uploadThumbnail(buffer, mimeType);
+//
+//     if (!uploaded.storageUrl) {
+//       // Without Storage, inline the image so clients can still display it.
+//       return {
+//         storagePath: null,
+//         storageUrl: `data:${mimeType};base64,${buffer.toString('base64')}`,
+//       };
+//     }
+//
+//     return uploaded;
+//   } catch (err) {
+//     // A missing thumbnail should not fail the whole generation.
+//     console.error('Thumbnail generation failed:', err);
+//     return { storagePath: null, storageUrl: null };
+//   }
+// }
 
 router.post('/', upload.single('video'), async (req, res, next) => {
   try {
@@ -47,10 +49,7 @@ router.post('/', upload.single('video'), async (req, res, next) => {
 
     const captionContext = `${captions.descriptiveCaption}\n${captions.viralCaption}`;
 
-    const [hashtags, thumbnail] = await Promise.all([
-      selectRelevantHashtags(trendingHashtags, captionContext),
-      createThumbnail(captions),
-    ]);
+    const hashtags = await selectRelevantHashtags(trendingHashtags, captionContext);
 
     const db = getFirestore();
     const doc = db
@@ -65,8 +64,8 @@ router.post('/', upload.single('video'), async (req, res, next) => {
           descriptiveCaption: captions.descriptiveCaption,
           viralCaption: captions.viralCaption,
           hashtags,
-          thumbnailPath: thumbnail.storagePath,
-          thumbnailUrl: thumbnail.storageUrl,
+          thumbnailPath: null,
+          thumbnailUrl: null,
           createdAt: new Date().toISOString(),
         })
       : null;
@@ -76,7 +75,7 @@ router.post('/', upload.single('video'), async (req, res, next) => {
       descriptiveCaption: captions.descriptiveCaption,
       viralCaption: captions.viralCaption,
       hashtags,
-      thumbnailUrl: thumbnail.storageUrl,
+      thumbnailUrl: null,
     });
   } catch (err) {
     next(err);
